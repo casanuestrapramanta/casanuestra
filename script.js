@@ -20,8 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NEW API Config ---
     // We NO LONGER call Google directly. We call our OWN server.
-    const ourServerUrl = 'https://casanuestra.onrender.com/chat';
-
+    //const ourServerUrl = 'https://casanuestra.onrender.com/chat';
+    const ourServerUrl = 'http://localhost:3000/chat'
     // --- Functions ---
 
     /**
@@ -79,6 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let formattedMessage = message
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            // --- ADD THIS NEW LINE ---
+            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-green-700 dark:text-green-400 hover:underline">$1</a>') // This finds [text](url) links
+            
+            // --- END OF NEW LINE ---
             .replace(/\n- (.*)/g, '<ul class="list-disc list-inside ml-4"><li>$1</li></ul>')
             .replace(/<\/ul>\n<ul class="list-disc list-inside ml-4">/g, '');
 
