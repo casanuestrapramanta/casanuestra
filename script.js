@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NEW API Config ---
     // We NO LONGER call Google directly. We call our OWN server.
-    const ourServerUrl = 'http://localhost:3000/chat';
+    const ourServerUrl = 'https://casanuestra.onrender.com/chat';
 
     // --- Functions ---
 
