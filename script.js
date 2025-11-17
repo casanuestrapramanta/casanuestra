@@ -20,8 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NEW API Config ---
     // We NO LONGER call Google directly. We call our OWN server.
-    const ourServerUrl = 'https://casanuestra.onrender.com/chat';
-    //const ourServerUrl = 'http://localhost:3000/chat'
+    //const ourServerUrl = 'https://casanuestra.onrender.com/chat';
+    const ourServerUrl = 'http://localhost:3000/chat'
     // --- Functions ---
 
     /**
@@ -81,8 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
             // --- ADD THIS NEW LINE ---
             .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-green-700 dark:text-green-400 hover:underline">$1</a>') // This finds [text](url) links
-            
             // --- END OF NEW LINE ---
+            // --- NEW RULE ADDED ---
+            // 4. Standalone Image Links: https://.../image.png -> <img src="...">
+            //    This runs *after* the link replacer so it doesn't break links.
+            //    It looks for URLs ending in image extensions that are NOT inside href="...".
+            .replace(/(?<!href=")(https?:\/\/[^\s]+(\.png|\.jpg|\.jpeg|\.gif|\.webp))/gi, '<img src="$1" alt="Chat Image" class="max-w-xs rounded-lg shadow-sm mt-2" style="max-height: 200px;">')
+            // --- END OF NEW RULE ---
             .replace(/\n- (.*)/g, '<ul class="list-disc list-inside ml-4"><li>$1</li></ul>')
             .replace(/<\/ul>\n<ul class="list-disc list-inside ml-4">/g, '');
 
