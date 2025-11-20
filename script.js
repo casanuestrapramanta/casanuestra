@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const backButton = document.getElementById('back-button');
     const headerSubtitle = document.getElementById('header-subtitle');
 
+
+
     // --- State ---
     // (Same as before)
     let currentCategory = null; 
@@ -47,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentCategory = categoryKey;
         currentCategoryTitle = categoryTitle;
         
+        
         categoryView.classList.add('hidden');
         chatView.classList.remove('hidden');
         
@@ -54,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headerSubtitle.textContent = `Topic: ${categoryTitle}`; 
         messageInput.placeholder = `Ask about ${categoryTitle}...`; 
 
-        let welcomeMsg = `Έχεις επιλέξει '${categoryTitle}'. Πώς μπορώ να σε βοηθήσω να βρεις τα καλύτερα ${categoryKey} στην περιοχή των Πραμάντων;`;
+        let welcomeMsg = `Έχεις επιλέξει '${categoryTitle}'. Πώς μπορώ να σε βοηθήσω να βρεις τo καλύτερo ${categoryTitle} στην περιοχή των Πραμάντων;`;
         addMessage(welcomeMsg, 'assistant');
     }
 
