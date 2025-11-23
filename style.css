@@ -85,3 +85,15 @@ body {
 .dark #chat-messages::-webkit-scrollbar-thumb:hover {
     background: #718096; /* dark:bg-gray-300 */
 }
+.restaurant-card {
+    position: relative;
+    background: #000;
+}
+
+.restaurant-card img {
+    transition: transform 0.4s ease;
+}
+
+.restaurant-card:hover img {
+    transform: scale(1.05);
+}
