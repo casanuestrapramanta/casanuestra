@@ -78,10 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendMessage(query) {
         if (!query.trim() || isSending) return;
 
-        const userQueryText = query.trim();
+        const queryText = query.trim();
 
         // 1. Εμφάνιση μηνύματος χρήστη
-        addMessage(userQueryText, 'user');
+        addMessage(queryText, 'user');
         
         // 2. Ετοιμασία και εμφάνιση loading
         isSending = true;
