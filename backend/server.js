@@ -187,7 +187,7 @@ function findSources(aiText, csvData) {
 app.post('/chat', async (req, res) => {
 
     try {
-        const userQuery = req.body.query;
+        const userQuery = req.body.userQuery;
         const category = req.body.category;
         console.log(`Received message about '${category}': ${userQuery}`);
 
