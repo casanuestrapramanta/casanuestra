@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }`;
 
         // Detect if message contains the Magic Card HTML block
-        const isMagicCard = message.includes('<div class="restaurant-card');
+        const isMagicCard = /restaurant-card/.test(message);
 
         let formattedMessage;
 
