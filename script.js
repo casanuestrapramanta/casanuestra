@@ -22,8 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- NEW API Config ---
     // We NO LONGER call Google directly. We call our OWN server.
-    const ourServerUrl = 'https://casanuestra.onrender.com/chat';
-    //const ourServerUrl = 'http://localhost:3000/chat'
+    //const ourServerUrl = 'https://casanuestra.onrender.com/chat';
+    const ourServerUrl = 'http://localhost:3000/chat'
     // --- Functions ---
 
     /**
@@ -156,11 +156,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Get the JSON response from our server
             // This will be our "dummy" message for now
-            const result = await response.json(); 
+            //const result = await response.json(); 
             
             // Add the server's test message to the chat
-            addMessage(result.text, 'assistant', result.sources);
+            //addMessage(result.text, 'assistant', result.sources);
+            //------------------------------------------------------------------------------------
+            // Get the JSON response from our server
+            const result = await response.json(); 
+            let botMessageHtml = result.text; // Start with the raw text from the AI
 
+            // --- 1. CHECK FOR [MAGIC_CARD] (Single Recommendation) ---
+            if (botMessageHtml.includes('[MAGIC_CARD]') && botMessageHtml.includes('[/MAGIC_CARD]')) {
+                // Use regex to safely capture the JSON string between the tags
+                const match = botMessageHtml.match(/\[MAGIC_CARD\]\s*(\{[\s\S]*?\})\s*\[\/MAGIC_CARD\]/);
+                if (match && match[1]) {
+                    const jsonStr = match[1];
+                    try {
+                        const data = JSON.parse(jsonStr);
+                        // Replace the entire tag block with the rendered HTML card
+                        botMessageHtml = botMessageHtml.replace(match[0], renderMagicCard(data));
+                    } catch(e) { 
+                        console.error("JSON parse error in MAGIC_CARD:", e); 
+                    }
+                }
+            }
+            // --- 2. CHECK FOR [MAGIC_CARDS] (Multiple Recommendations) ---
+            else if (botMessageHtml.includes('[MAGIC_CARDS]') && botMessageHtml.includes('[/MAGIC_CARDS]')) {
+                // Use regex to safely capture the JSON array string between the tags
+                const match = botMessageHtml.match(/\[MAGIC_CARDS\]\s*(\[[\s\S]*?\])\s*\[\/MAGIC_CARDS\]/);
+                if (match && match[1]) {
+                    const jsonStr = match[1];
+                    try {
+                        const cards = JSON.parse(jsonStr);
+                        if (Array.isArray(cards) && cards.length > 0) {
+                            // Replace the entire tag block with the rendered HTML cards
+                            botMessageHtml = botMessageHtml.replace(match[0], renderMultipleCards(cards));
+                        }
+                    } catch(e) { 
+                        console.error("JSON parse error in MAGIC_CARDS:", e); 
+                    }
+                }
+            }
+
+            // Add the final processed message (which now contains the card HTML) to the chat
+            addMessage(botMessageHtml, 'assistant', result.sources);
+//------------------------------------------------------------------------------------------------------------------------
         } catch (error) {
             console.error('Error fetching bot response from our server:', error);
             addMessage("I'm having trouble connecting to my server. Please make sure it's running.", 'assistant');
@@ -203,5 +243,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial State ---
     showCategoryView();
+
+    // —— MAGIC CARD RENDERER (για φαγητό, αξιοθέατα, κλπ) ——
+    function renderMagicCard(data) {
+        // data = { name, location, description, rating, price, specialties, photo, maps, phone }
+        const photoUrl = data.photo && data.photo.trim() !== "" 
+            ? data.photo 
+            : null;
+        
+        // Clean up phone number for 'tel:' link
+        const cleanedPhone = data.phone ? data.phone.replace(/[^0-9+]/g, '') : null;
+        
+        const cardHtml = `
+        <div class="restaurant-card my-6 rounded-2xl shadow-2xl overflow-hidden relative">
+            ${photoUrl 
+                ? `<div class="absolute inset-0 bg-cover bg-center" style="background-image:url('${photoUrl}')"></div>`
+                : `<div class="absolute inset-0 bg-gradient-to-br from-green-700 via-green-900 to-gray-900"></div>`
+            }
+            <div class="absolute inset-0 bg-black ${photoUrl ? 'opacity-50' : 'opacity-70'}"></div>
+                    
+            <div class="relative z-10 p-6 text-white">
+                <h2 class="text-3xl font-bold mb-1">${data.name || 'Άγνωστο'}</h2>
+                <p class="text-xl opacity-90 mb-5">${data.location || ''}</p>
+                            
+                <p class="text-sm leading-relaxed opacity-95 mb-5">${data.description || ''}</p>
+                            
+                <div class="flex items-center gap-4 mb-6">
+                    ${data.rating ? `<span class="text-yellow-400 text-lg">⭐ ${data.rating}</span>` : ''}
+                    ${data.price ? `<span class="px-3 py-1 bg-white bg-opacity-20 rounded-full text-sm">${data.price}</span>` : ''}
+                </div>
+                            
+                ${data.specialties ? `<p class="text-sm opacity-90 mb-7">Διάσημο για: ${data.specialties}</p>` : ''}
+                            
+                <div class="grid grid-cols-2 gap-4">
+                    ${data.maps ? 
+                        `<a href="${data.maps}" target="_blank" rel="noopener noreferrer" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
+                            Πλοήγηση τώρα
+                        </a>` : ''
+                    }
+                    ${cleanedPhone ? 
+                        `<a href="tel:${cleanedPhone}" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
+                            Καλέστε
+                        </a>` : ''
+                    }
+                </div>
+            </div>
+        </div>`;
+        return cardHtml;
+    }
+
+    // — Πολλαπλές προτάσεις (2+): κάνει render όλες κάτω-κάτω —
+    function renderMultipleCards(cardsArray) {
+        let html = '';
+        cardsArray.forEach(card => {
+            html += renderMagicCard(card);
+        });
+        return html;
+    }
 
 });
