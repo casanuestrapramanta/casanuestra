@@ -1,8 +1,7 @@
-// Wait for the DOM to be fully loaded before running our script
+// Περιμένουμε μέχρι να φορτωθεί πλήρως το DOM πριν εκτελέσουμε το script
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- DOM Elements ---
-    // (Same as before)
+    // --- 1. Αναφορά στα DOM Elements (Στοιχεία του HTML) ---
     const categoryView = document.getElementById('category-view');
     const chatView = document.getElementById('chat-view');
     const categoryButtons = document.querySelectorAll('.category-button');
@@ -13,59 +12,181 @@ document.addEventListener('DOMContentLoaded', () => {
     const backButton = document.getElementById('back-button');
     const headerSubtitle = document.getElementById('header-subtitle');
 
-
-
-    // --- State ---
-    // (Same as before)
+    // --- 2. State (Κατάσταση Εφαρμογής) ---
     let currentCategory = null; 
     let currentCategoryTitle = null;
+    let isSending = false; // Μεταβλητή για αποφυγή πολλαπλών αιτημάτων (Debounce)
 
-    // --- NEW API Config ---
-    // We NO LONGER call Google directly. We call our OWN server.
+    // --- 3. API Config (Διαμόρφωση Σύνδεσης) ---
     const ourServerUrl = 'https://casanuestra.onrender.com/chat';
-    //const ourServerUrl = 'http://localhost:3000/chat'
-    // --- Functions ---
+    // const ourServerUrl = 'http://localhost:3000/chat'; // Uncomment for local development
+
+    // --- 4. Βοηθητικές Συναρτήσεις ---
 
     /**
-     * Shows the main category selection view
+     * Εμφανίζει την αρχική οθόνη επιλογής κατηγορίας
      */
     function showCategoryView() {
-        // (This function is unchanged)
         chatView.classList.add('hidden');
         categoryView.classList.remove('hidden');
         currentCategory = null;
         currentCategoryTitle = null;
-        chatMessages.innerHTML = ''; 
-        headerSubtitle.textContent = "Your guide to Pramanta & Tzoumerka"; 
+        
+        // Καθαρισμός του ιστορικού chat
+        chatMessages.innerHTML = '';
+        headerSubtitle.textContent = 'Επιλέξτε μια κατηγορία για να ξεκινήσετε...';
     }
 
     /**
-     * Shows the chat view for a specific category
-     * @param {string} categoryKey - The category key (e.g., 'food')
-     * @param {string} categoryTitle - The display title (e.g., 'Φαγητό')
+     * Εμφανίζει την οθόνη συνομιλίας
+     * @param {string} category - Η επιλεγμένη κατηγορία
+     * @param {string} title - Ο τίτλος της κατηγορίας για την επικεφαλίδα
      */
-    function showChatView(categoryKey, categoryTitle) {
-        // (This function is unchanged)
-        currentCategory = categoryKey;
-        currentCategoryTitle = categoryTitle;
-        
-        
+    function showChatView(category, title) {
+        currentCategory = category;
+        currentCategoryTitle = title;
         categoryView.classList.add('hidden');
         chatView.classList.remove('hidden');
+        headerSubtitle.textContent = `Μιλάτε για: ${title}`;
         
-        chatMessages.innerHTML = '';
-        headerSubtitle.textContent = `Topic: ${categoryTitle}`; 
-        messageInput.placeholder = `Ask about ${categoryTitle}...`; 
-
-        let welcomeMsg = `Έχεις επιλέξει '${categoryTitle}'. Πώς μπορώ να σε βοηθήσω να βρεις τo καλύτερo ${categoryTitle} στην περιοχή των Πραμάντων;`;
-        addMessage(welcomeMsg, 'assistant');
+        // --- ΔΙΟΡΘΩΣΗ: Αφαίρεση αυτόματου μηνύματος (για να μην χαθεί το AI context - ❗1) ---
+        // Αντί να στέλνουμε query, εμφανίζουμε ένα μήνυμα καλωσορίσματος:
+        addMessage(`Καλώς ήρθατε! Είμαι ο Ψηφιακός Βοηθός της Casa Nuestra. Τι θα θέλατε να σας προτείνω σχετικά με: **${title}**;`, 'system');
     }
 
     /**
-     * Adds a message to the chat interface.
-     * @param {string} message - The text content of the message.
-     * @param {'user' | 'assistant'} sender - The sender of the message.
-     * @param {Array<Object>} sources - Array of source objects from grounding.
+     * Διορθώνει (unescapes) βασικές HTML entities που μπορεί να στείλει το AI (π.χ. &lt; -> <).
+     * Αυτό εξασφαλίζει ότι το HTML της κάρτας θα αναγνωριστεί σωστά (❗2).
+     * @param {string} str - Η συμβολοσειρά προς διόρθωση
+     * @returns {string} Η διορθωμένη συμβολοσειρά
+     */
+    function unescapeHtml(str) {
+        if (!str || typeof str !== 'string') return str;
+        // Χρησιμοποιούμε regex για να αντικαταστήσουμε τα βασικά escape sequences
+        return str
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&amp;/g, '&'); // Πρέπει να είναι το τελευταίο
+    }
+    
+    /**
+     * Διαχειρίζεται την αποστολή του μηνύματος
+     * @param {string} query - Το κείμενο ερωτήματος του χρήστη
+     */
+    async function sendMessage(query) {
+        if (!query.trim() || isSending) return;
+
+        const userQueryText = query.trim();
+
+        // 1. Εμφάνιση μηνύματος χρήστη
+        addMessage(userQueryText, 'user');
+        
+        // 2. Ετοιμασία και εμφάνιση loading
+        isSending = true;
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+        loadingSpinner.classList.remove('hidden');
+
+        try {
+            // 3. Κατασκευή του payload. Χρησιμοποιούμε τα ονόματα που περιμένει το server.js.
+            const payload = {
+                userQuery: userQueryText, // Ευθυγράμμιση με το server.js
+                category: currentCategory
+            };
+
+            // 4. Κλήση του Back-End (server.js)
+            const response = await fetch(ourServerUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // 5. Εμφάνιση της απάντησης του AI
+            processAIResponse(data.text);
+            
+            // 6. Καθαρισμός input και focus μόνο μετά από επιτυχή αποστολή
+            messageInput.value = ''; 
+            messageInput.focus();
+
+
+        } catch (error) {
+            console.error('Error sending message:', error);
+            // Εμφάνιση μηνύματος σφάλματος στον χρήστη
+            addMessage(`Λυπάμαι, αντιμετωπίσαμε ένα πρόβλημα κατά την επεξεργασία του αιτήματός σας: ${error.message}. Παρακαλώ δοκιμάστε ξανά.`, 'system');
+        } finally {
+            // 7. Τερματισμός loading state
+            isSending = false;
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+            loadingSpinner.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Αναλύει την απάντηση του AI, διαχωρίζει τις Magic Cards από το κείμενο
+     * και τις εμφανίζει.
+     * @param {string} aiText - Η raw απάντηση από το AI
+     */
+    function processAIResponse(aiText) {
+        // Χρησιμοποιούμε regex για να βρούμε τα tags [MAGIC_CARDS]...[/MAGIC_CARDS]
+        const cardRegex = /\[MAGIC_CARDS\]([\s\S]*?)\[\/MAGIC_CARDS\]/g;
+        let cardMatch;
+        let lastIndex = 0;
+        
+        // Διορθώνουμε πιθανό escape-αρισμένο HTML στην αρχή
+        const unescapedText = unescapeHtml(aiText);
+
+        while ((cardMatch = cardRegex.exec(unescapedText)) !== null) {
+            const cardBlock = cardMatch[0]; // Όλο το μπλοκ [MAGIC_CARDS]...[/MAGIC_CARDS]
+            const jsonString = cardMatch[1].trim(); // Το JSON string
+
+            // 1. Εμφάνιση προηγούμενου κειμένου (αν υπάρχει)
+            const precedingText = unescapedText.substring(lastIndex, cardMatch.index).trim();
+            if (precedingText) {
+                addMessage(precedingText, 'system');
+            }
+
+            // 2. Επεξεργασία και εμφάνιση Magic Cards
+            try {
+                // To JSON.parse() διαχειρίζεται σωστά το array ή το μονό object
+                const cardsData = JSON.parse(jsonString); 
+                
+                if (Array.isArray(cardsData)) {
+                    // Αν είναι πίνακας (2 ή περισσότερες κάρτες)
+                    addMessage(renderMultipleCards(cardsData), 'system');
+                } else if (typeof cardsData === 'object' && cardsData !== null) {
+                    // Αν είναι μονό object
+                    addMessage(renderMagicCard(cardsData), 'system');
+                }
+            } catch (e) {
+                console.error('Error parsing Magic Card JSON:', e, jsonString);
+                // Αν αποτύχει το parsing, εμφανίζουμε το μπλοκ ως απλό κείμενο
+                addMessage(cardBlock, 'system');
+            }
+
+            lastIndex = cardMatch.index + cardMatch[0].length;
+        }
+
+        // 3. Εμφάνιση τυχόν υπολειπόμενου κειμένου μετά τις κάρτες
+        const remainingText = unescapedText.substring(lastIndex).trim();
+        if (remainingText) {
+            addMessage(remainingText, 'system');
+        }
+    }
+
+
+    /**
+     * Προσθέτει ένα νέο μήνυμα στον χώρο συνομιλίας
+     * @param {string} message - Το κείμενο (ή HTML) του μηνύματος
+     * @param {string} sender - 'user' ή 'system'
      */
     function addMessage(message, sender, sources = []) {
         const messageWrapper = document.createElement('div');
@@ -78,225 +199,97 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
         }`;
 
-        // Detect if message contains the Magic Card HTML block
+        // Χρησιμοποιούμε Regular Expression για να αγνοήσουμε τα κενά/αλλαγές γραμμής.
         const isMagicCard = /restaurant-card/.test(message);
 
         let formattedMessage;
 
         if (isMagicCard) {
-            // Do NOT touch the HTML of the Magic Card
+            // Αν είναι κάρτα, το αφήνουμε ως raw HTML
             formattedMessage = message;
         } else {
+            // Αν είναι απλό κείμενο, εφαρμόζουμε Markdown formatting
             formattedMessage = message
+                // Bold: **text**
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic: *text*
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Links: [text](url)
                 .replace(/\[(.*?)\]\((.*?)\)/g,
                     '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-green-700 dark:text-green-400 hover:underline">$1</a>'
                 )
-                // Auto-image ONLY for normal chat, NOT for MAGIC_CARD
+                // Auto-detect Images: Μετατροπή URL εικόνων σε <img> tags
                 .replace(/(?<!href=")((https?:\/\/)[^\s]+(\.png|\.jpg|\.jpeg|\.gif|\.webp))/gi,
                     '<img src="$1" alt="Chat Image" class="max-w-xs rounded-lg shadow-sm mt-2" style="max-height: 200px;">'
                 )
+                // Λίστες: - item (Μετατροπή σε <ul>/<li>)
                 .replace(/\n- (.*)/g, '<ul class="list-disc list-inside ml-4"><li>$1</li></ul>')
+                // Καθαρισμός διπλών <ul> tags
                 .replace(/<\/ul>\n<ul class="list-disc list-inside ml-4">/g, '');
         }
 
         messageBubble.innerHTML = formattedMessage;
         messageWrapper.appendChild(messageBubble);
         chatMessages.appendChild(messageWrapper);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-
-    /**
-     * Gets a response from our NEW backend server.
-     * @param {string} query - The user's query.
-     */
-    async function getBotResponse(query) {
-        loadingSpinner.classList.remove('hidden');
-
-        // This is the data we will send to our server as JSON
-        const payload = {
-            query: query,
-            category: currentCategory // We also send the selected category
-        };
-
-        try {
-            // --- THIS IS THE MAIN CHANGE ---
-            // We now 'fetch' from our OWN server, not Google's
-            const response = await fetch(ourServerUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload) // Send the user's query and category
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            // Get the JSON response from our server
-            // This will be our "dummy" message for now
-            //const result = await response.json(); 
-            
-            // Add the server's test message to the chat
-            //addMessage(result.text, 'assistant', result.sources);
-            //------------------------------------------------------------------------------------
-            // Get the JSON response from our server
-            const result = await response.json(); 
-            let botMessageHtml = result.text; // Start with the raw text from the AI
-
-            // --- 1. CHECK FOR [MAGIC_CARD] (Single Recommendation) ---
-            if (botMessageHtml.includes('[MAGIC_CARD]') && botMessageHtml.includes('[/MAGIC_CARD]')) {
-                // Use regex to safely capture the JSON string between the tags
-                const match = botMessageHtml.match(/\[MAGIC_CARD\]\s*(\{[\s\S]*?\})\s*\[\/MAGIC_CARD\]/);
-                if (match && match[1]) {
-                    const jsonStr = match[1];
-                    try {
-                        const data = JSON.parse(jsonStr);
-                        // Replace the entire tag block with the rendered HTML card
-                        botMessageHtml = botMessageHtml.replace(match[0], renderMagicCard(data));
-                    } catch(e) { 
-                        console.error("JSON parse error in MAGIC_CARD:", e); 
-                    }
-                }
-            }
-            // --- 2. CHECK FOR [MAGIC_CARDS] (Multiple Recommendations) ---
-            else if (botMessageHtml.includes('[MAGIC_CARDS]') && botMessageHtml.includes('[/MAGIC_CARDS]')) {
-                // Use regex to safely capture the JSON array string between the tags
-                const match = botMessageHtml.match(/\[MAGIC_CARDS\]\s*(\[[\s\S]*?\])\s*\[\/MAGIC_CARDS\]/);
-                if (match && match[1]) {
-                    const jsonStr = match[1];
-                    try {
-                        const cards = JSON.parse(jsonStr);
-                        if (Array.isArray(cards) && cards.length > 0) {
-                            // Replace the entire tag block with the rendered HTML cards
-                            botMessageHtml = botMessageHtml.replace(match[0], renderMultipleCards(cards));
-                        }
-                    } catch(e) { 
-                        console.error("JSON parse error in MAGIC_CARDS:", e); 
-                    }
-                }
-            }
-
-            // Add the final processed message (which now contains the card HTML) to the chat
-            addMessage(botMessageHtml, 'assistant', result.sources);
-//------------------------------------------------------------------------------------------------------------------------
-        } catch (error) {
-            console.error('Error fetching bot response from our server:', error);
-            addMessage("I'm having trouble connecting to my server. Please make sure it's running.", 'assistant');
-        } finally {
-            loadingSpinner.classList.add('hidden');
-        }
-    }
-
-    /**
-     * Handles sending a message (from button click or Enter key).
-     */
-    function sendMessage() {
-        // (This function is unchanged)
-        const query = messageInput.value.trim();
-        if (query === "") return;
-
-        addMessage(query, 'user');
-        messageInput.value = "";
         
-        getBotResponse(query);
+        // --- ΒΕΛΤΙΩΣΗ: requestAnimationFrame για ομαλό scroll (❗5) ---
+        window.requestAnimationFrame(() => {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
     }
 
-    // --- Event Listeners ---
-    // (All unchanged)
-    categoryButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const categoryKey = button.dataset.category;
-            const categoryTitle = button.dataset.title;
-            showChatView(categoryKey, categoryTitle);
-        });
-    });
-    backButton.addEventListener('click', showCategoryView);
-    sendButton.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
 
-    // --- Initial State ---
-    showCategoryView();
-
-    // —— MAGIC CARD RENDERER (για φαγητό, αξιοθέατα, κλπ) ——
+    /**
+     * Δημιουργεί το HTML για μία μονή Magic Card (με Tailwind CSS)
+     * @param {object} data - Τα δεδομένα του εστιατορίου από το JSON
+     * @returns {string} Το HTML string της κάρτας
+     */
     function renderMagicCard(data) {
-        const photoUrl = data.photo && data.photo.trim() !== "" 
-            ? data.photo 
-            : null;
-
-        const cleanedPhone = data.phone ? data.phone.replace(/[^0-9+]/g, '') : null;
-
+        // ... (Ο κώδικας renderMagicCard παραμένει ο ίδιος, αφού είναι ήδη διορθωμένος με z-index και σωστό src)
+        const cleanedPhone = data.phone ? data.phone.replace(/[\s\(\)]/g, '') : null;
+        const photoUrl = data.photo && data.photo.trim() !== "" ? data.photo : null;
+        
         const cardHtml = `
             <div class="restaurant-card my-6 rounded-2xl shadow-2xl overflow-hidden relative">
 
-                <!-- BACKGROUND IMAGE OR GRADIENT -->
-                ${
-                    photoUrl
-                    ? `<img src="${photoUrl}" alt="${data.name}"
-                        class="absolute inset-0 w-full h-full object-cover object-center z-0">`
-                    : `<div class="absolute inset-0 w-full h-full bg-gradient-to-br 
-                        from-green-700 via-green-900 to-gray-900 z-0"></div>`
+                ${photoUrl 
+                    ? `<img src="${photoUrl}" alt="${data.name}" class="absolute inset-0 w-full h-full object-cover object-center z-0">`
+                    : `<div class="absolute inset-0 bg-gradient-to-br from-green-700 via-green-900 to-gray-900 z-0"></div>`
                 }
-
-                <!-- DARK OVERLAY -->
+                
                 <div class="absolute inset-0 bg-black opacity-60 z-10"></div>
 
-                <!-- CONTENT -->
                 <div class="relative z-20 p-6 text-white">
                     <h2 class="text-3xl font-bold mb-1">${data.name || 'Άγνωστο'}</h2>
                     <p class="text-xl opacity-90 mb-5">${data.location || ''}</p>
                     <p class="text-sm leading-relaxed opacity-95 mb-5">${data.description || ''}</p>
 
                     <div class="flex items-center gap-4 mb-6">
-                        ${data.rating 
-                            ? `<span class="text-yellow-400 text-lg">⭐ ${data.rating}</span>` 
-                            : ''
-                        }
-                        ${data.price 
-                            ? `<span class="px-3 py-1 bg-white bg-opacity-20 rounded-full text-sm">${data.price}</span>` 
-                            : ''
-                        }
+                        ${data.rating ? `<span class="text-yellow-400 text-lg">⭐ ${data.rating}</span>` : ''}
+                        ${data.price ? `<span class="px-3 py-1 bg-white bg-opacity-20 rounded-full text-sm">${data.price}</span>` : ''}
                     </div>
 
-                    ${data.specialties 
-                        ? `<p class="text-sm opacity-90 mb-7">Διάσημο για: ${data.specialties}</p>` 
-                        : ''
-                    }
+                    ${data.specialties ? `<p class="text-sm opacity-90 mb-7">Διάσημο για: ${data.specialties}</p>` : ''}
 
                     <div class="grid grid-cols-2 gap-4">
-                        ${data.maps 
-                            ? `<a href="${data.maps}" 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
-                                    Πλοήγηση τώρα
-                            </a>` 
-                            : ''
-                        }
-
-                        ${cleanedPhone 
-                            ? `<a href="tel:${cleanedPhone}" 
-                                class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
-                                    Καλέστε
-                            </a>` 
-                            : ''
-                        }
+                        ${data.maps ? 
+                            `<a href="${data.maps}" target="_blank" rel="noopener noreferrer" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
+                                Πλοήγηση τώρα
+                            </a>` : ''}
+                        ${cleanedPhone ? 
+                            `<a href="tel:${cleanedPhone}" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
+                                Καλέστε
+                            </a>` : ''}
                     </div>
                 </div>
-            </div>
-        `;
-
+            </div>`;
         return cardHtml;
     }
 
 
-    // — Πολλαπλές προτάσεις (2+): κάνει render όλες κάτω-κάτω —
+    /**
+     * Δημιουργεί το HTML για πολλαπλές κάρτες, καλώντας την renderMagicCard
+     */
     function renderMultipleCards(cardsArray) {
         let html = '';
         cardsArray.forEach(card => {
@@ -305,4 +298,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return html;
     }
 
+
+    // --- 5. Event Listeners (Ακροατές Γεγονότων) ---
+    
+    // Έναρξη συνομιλίας όταν επιλέγεται κατηγορία
+    categoryButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const category = button.dataset.category;
+            const title = button.textContent.trim();
+            showChatView(category, title);
+        });
+    });
+
+    // Αποστολή μηνύματος με το κουμπί
+    sendButton.addEventListener('click', () => {
+        sendMessage(messageInput.value);
+    });
+
+    // --- ΔΙΟΡΘΩΣΗ: Χρήση keydown αντί για keypress (Deprecated - ❗4) ---
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); // Αποφυγή νέας γραμμής
+            sendMessage(messageInput.value);
+        }
+    });
+    
+    // Κουμπί επιστροφής στην αρχική οθόνη
+    backButton.addEventListener('click', showCategoryView);
+
+
+    // --- 6. Αρχική Εκκίνηση ---
+    showCategoryView(); // Ξεκινάμε με την οθόνη επιλογής κατηγορίας
 });
