@@ -68,65 +68,45 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {Array<Object>} sources - Array of source objects from grounding.
      */
     function addMessage(message, sender, sources = []) {
-        // (This function is unchanged)
         const messageWrapper = document.createElement('div');
         messageWrapper.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
-        
+
         const messageBubble = document.createElement('div');
         messageBubble.className = `rounded-2xl p-4 max-w-xs lg:max-w-md shadow-sm ${
             sender === 'user' 
-            ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 rounded-br-none' 
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
+                ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100 rounded-br-none' 
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
         }`;
 
-        let formattedMessage = message
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            // --- ADD THIS NEW LINE ---
-            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-green-700 dark:text-green-400 hover:underline">$1</a>') // This finds [text](url) links
-            // --- END OF NEW LINE ---
-            // --- NEW RULE ADDED ---
-            // 4. Standalone Image Links: https://.../image.png -> <img src="...">
-            //    This runs *after* the link replacer so it doesn't break links.
-            //    It looks for URLs ending in image extensions that are NOT inside href="...".
-            .replace(/(?<!href=")(https?:\/\/[^\s]+(\.png|\.jpg|\.jpeg|\.gif|\.webp))/gi, '<img src="$1" alt="Chat Image" class="max-w-xs rounded-lg shadow-sm mt-2" style="max-height: 200px;">')
-            // --- END OF NEW RULE ---
-            .replace(/\n- (.*)/g, '<ul class="list-disc list-inside ml-4"><li>$1</li></ul>')
-            .replace(/<\/ul>\n<ul class="list-disc list-inside ml-4">/g, '');
+        // Detect if message contains the Magic Card HTML block
+        const isMagicCard = message.includes('<div class="restaurant-card');
 
-        messageBubble.innerHTML = formattedMessage;
+        let formattedMessage;
 
-        if (sources.length > 0) {
-            const sourcesContainer = document.createElement('div');
-            sourcesContainer.className = 'mt-3 pt-3 border-t border-gray-300 dark:border-gray-600';
-            
-            const sourcesTitle = document.createElement('h4');
-            sourcesTitle.className = 'text-xs font-semibold mb-1 opacity-80';
-            sourcesTitle.textContent = 'For more info:';
-            sourcesContainer.appendChild(sourcesTitle);
-
-            const sourcesList = document.createElement('ul');
-            sourcesList.className = 'list-none space-y-1';
-            
-            sources.forEach((source, index) => {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = source.uri;
-                a.textContent = `${index + 1}. ${source.title}`;
-                a.target = '_blank';
-                a.rel = 'noopener noreferrer';
-                a.className = 'text-xs text-green-700 dark:text-green-400 hover:underline truncate block';
-                li.appendChild(a);
-                sourcesList.appendChild(li);
-            });
-            sourcesContainer.appendChild(sourcesList);
-            messageBubble.appendChild(sourcesContainer);
+        if (isMagicCard) {
+            // Do NOT touch the HTML of the Magic Card
+            formattedMessage = message;
+        } else {
+            formattedMessage = message
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\[(.*?)\]\((.*?)\)/g,
+                    '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-green-700 dark:text-green-400 hover:underline">$1</a>'
+                )
+                // Auto-image ONLY for normal chat, NOT for MAGIC_CARD
+                .replace(/(?<!href=")((https?:\/\/)[^\s]+(\.png|\.jpg|\.jpeg|\.gif|\.webp))/gi,
+                    '<img src="$1" alt="Chat Image" class="max-w-xs rounded-lg shadow-sm mt-2" style="max-height: 200px;">'
+                )
+                .replace(/\n- (.*)/g, '<ul class="list-disc list-inside ml-4"><li>$1</li></ul>')
+                .replace(/<\/ul>\n<ul class="list-disc list-inside ml-4">/g, '');
         }
 
+        messageBubble.innerHTML = formattedMessage;
         messageWrapper.appendChild(messageBubble);
         chatMessages.appendChild(messageWrapper);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+
 
     /**
      * Gets a response from our NEW backend server.
