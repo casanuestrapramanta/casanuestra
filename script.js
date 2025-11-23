@@ -255,40 +255,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanedPhone = data.phone ? data.phone.replace(/[^0-9+]/g, '') : null;
         
         const cardHtml = `
-        <div class="restaurant-card my-6 rounded-2xl shadow-2xl overflow-hidden relative">
-            ${photoUrl 
-                ? `<div class="absolute inset-0 bg-cover bg-center" style="background-image:url('${photoUrl}')"></div>`
-                : `<div class="absolute inset-0 bg-gradient-to-br from-green-700 via-green-900 to-gray-900"></div>`
-            }
-            <div class="absolute inset-0 bg-black ${photoUrl ? 'opacity-50' : 'opacity-70'}"></div>
-                    
-            <div class="relative z-10 p-6 text-white">
-                <h2 class="text-3xl font-bold mb-1">${data.name || 'Άγνωστο'}</h2>
-                <p class="text-xl opacity-90 mb-5">${data.location || ''}</p>
-                            
-                <p class="text-sm leading-relaxed opacity-95 mb-5">${data.description || ''}</p>
-                            
-                <div class="flex items-center gap-4 mb-6">
-                    ${data.rating ? `<span class="text-yellow-400 text-lg">⭐ ${data.rating}</span>` : ''}
-                    ${data.price ? `<span class="px-3 py-1 bg-white bg-opacity-20 rounded-full text-sm">${data.price}</span>` : ''}
-                </div>
-                            
-                ${data.specialties ? `<p class="text-sm opacity-90 mb-7">Διάσημο για: ${data.specialties}</p>` : ''}
-                            
-                <div class="grid grid-cols-2 gap-4">
-                    ${data.maps ? 
-                        `<a href="${data.maps}" target="_blank" rel="noopener noreferrer" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
-                            Πλοήγηση τώρα
-                        </a>` : ''
-                    }
-                    ${cleanedPhone ? 
-                        `<a href="tel:${cleanedPhone}" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
-                            Καλέστε
-                        </a>` : ''
-                    }
-                </div>
+    <div class="restaurant-card my-6 rounded-2xl shadow-2xl overflow-hidden relative">
+
+        <!-- ΕΔΩ Η ΜΟΝΗ ΑΛΛΑΓΗ ΠΟΥ ΧΡΕΙΑΖΕΤΑΙ -->
+        ${photoUrl 
+            ? `<img src="${-photoUrl}" alt="${data.name}" class="absolute inset-0 w-full h-full object-cover object-center">`
+            : `<div class="absolute inset-0 bg-gradient-to-br from-green-700 via-green-900 to-gray-900"></div>`
+        }
+        <div class="absolute inset-0 bg-black opacity-60"></div>
+        <!-- Τέλος αλλαγής -->
+
+        <div class="relative z-10 p-6 text-white">
+            <h2 class="text-3xl font-bold mb-1">${data.name || 'Άγνωστο'}</h2>
+            <p class="text-xl opacity-90 mb-5">${data.location || ''}</p>
+            <p class="text-sm leading-relaxed opacity-95 mb-5">${data.description || ''}</p>
+
+            <div class="flex items-center gap-4 mb-6">
+                ${data.rating ? `<span class="text-yellow-400 text-lg">⭐ ${data.rating}</span>` : ''}
+                ${data.price ? `<span class="px-3 py-1 bg-white bg-opacity-20 rounded-full text-sm">${data.price}</span>` : ''}
             </div>
-        </div>`;
+
+            ${data.specialties ? `<p class="text-sm opacity-90 mb-7">Διάσημο για: ${data.specialties}</p>` : ''}
+
+            <div class="grid grid-cols-2 gap-4">
+                ${data.maps ? 
+                    `<a href="${data.maps}" target="_blank" rel="noopener noreferrer" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
+                        Πλοήγηση τώρα
+                    </a>` : ''}
+                ${cleanedPhone ? 
+                    `<a href="tel:${cleanedPhone}" class="bg-white text-green-800 text-center py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition">
+                        Καλέστε
+                    </a>` : ''}
+            </div>
+        </div>
+    </div>`;
         return cardHtml;
     }
 
