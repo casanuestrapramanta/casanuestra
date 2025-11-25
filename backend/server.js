@@ -2,6 +2,8 @@
 // 'dotenv' MUST be at the very top. It loads your secret API key.
 require('dotenv').config();
 
+
+
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -11,6 +13,44 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 /* --- Step 2: Initialize AI --- */
 const apiKey = process.env.GEMINI_API_KEY;
+
+// ---------------------------------------------------------
+// STEP 1: BASIC INPUT VALIDATION FUNCTION
+// This function checks that the inputs coming from the client
+// are safe and reasonable. This prevents errors or attacks.
+// ---------------------------------------------------------
+function validateBasicInput(category, userQuery) {
+
+    // Check if category exists and is a string
+    if (!category || typeof category !== "string") {
+        return false;
+    }
+
+    // Allow only letters, numbers, hyphens, and underscores
+    // This prevents path traversal (e.g., "../etc/passwd")
+    if (!/^[a-zA-Z0-9_\-]+$/.test(category)) {
+        return false;
+    }
+
+    // Check if userQuery exists and is a string
+    if (!userQuery || typeof userQuery !== "string") {
+        return false;
+    }
+
+    // Reject empty messages
+    if (userQuery.trim().length === 0) {
+        return false;
+    }
+
+    // Limit the message length (prevents huge payloads)
+    if (userQuery.length > 1500) {
+        return false;
+    }
+
+    // If everything is OK, return true
+    return true;
+}
+
 
 if (!apiKey) {
     console.error('FATAL ERROR: GEMINI_API_KEY is not defined in your .env file.');
@@ -28,6 +68,9 @@ console.log("Gemini AI model initialized successfully.");
 /* --- Step 3: Setup your server --- */
 const app = express();
 const port = 3000;
+
+const csvCache = {};         // storage for cached CSV per category
+const CSV_CACHE_TTL = 1000 * 60 * 5; // 5 minutes lifetime
 
 app.use(express.json());
 app.use(cors());
@@ -88,35 +131,40 @@ async function generateContentWithRetry(promptText) {
  * @returns {Promise<Array<Object>>} A promise that resolves to an array of data rows.
  */
 async function loadAndCleanCsvData(csvFilePath) {
+    
+
+    // ---------------------------------------------------------
+    // STEP 2B: CHECK CACHE BEFORE READING FILE
+    // If CSV is already stored in csvCache and not expired,
+    // return it instantly (much faster than reading from disk).
+    // ---------------------------------------------------------
+    const now = Date.now();
+    const cached = csvCache[csvFilePath];
+
+    if (cached && (now - cached.timestamp < CSV_CACHE_TTL)) {
+        console.log("✔ Loaded CSV from cache:", csvFilePath);
+        return cached.data; // return the cached CSV
+    }
+
+    // If not cached OR cache expired, read file from disk:
+    console.log("⏳ Reading CSV from disk:", csvFilePath);
+
     const csvData = [];
+
     const stream = fs.createReadStream(csvFilePath).pipe(csv({ separator: ';' }));
 
     for await (const row of stream) {
-        // --- PROPOSAL 4: Clean Data on Load ---
-        // We clean the price range data as it's being read from the file.
-        if (row.Εύρος_Τιμών) {
-            const rawPrice = row.Εύρος_Τιμών.trim(); // Get the raw value
-
-            if (rawPrice === 'E (Χαμηλό)' || rawPrice === '€ (Χαμηλό)') {
-                row.Εύρος_Τιμών = '€ (Χαμηλό)';
-            } else if (rawPrice === 'EE (Μεσαίο)' || rawPrice === '€€ (Μεσαίο)') {
-                row.Εύρος_Τιμών = '€€ (Μεσαίο)';
-            } else if (rawPrice === 'EEE (Υψηλό)' || rawPrice === '€€€ (Υψηλό)') {
-                row.Εύρος_Τιμών = '€€€ (Υψηλό)';
-            } else if (rawPrice === '€-€€ (Μεσαίο-Χαμηλό)') {
-                row.Εύρος_Τιμών = '€-€€ (Χαμηλό προς Μεσαίο)'; // Standardize the text
-            } else if (rawPrice === 'Μη διαθέσιμο') {
-                row.Εύρος_Τιμών = 'Δεν αναφέρεται'; // Make it more conversational for the AI
-            }
-            // Any other value (like if it's already perfect) will just be passed through.
-        } else {
-            // If the column is empty or null
-            row.Εύρος_Τιμών = 'Δεν αναφέρεται';
-        }
-        // --- End of Cleaning Logic ---
 
         csvData.push(row);
     }
+        // ---------------------------------------------------------
+    // SAVE RESULT INTO CACHE FOR NEXT TIME
+    // ---------------------------------------------------------
+    csvCache[csvFilePath] = {
+        timestamp: now,
+        data: csvData
+    };
+
     return csvData;
 }
 
@@ -190,6 +238,17 @@ app.post('/chat', async (req, res) => {
         const userQuery = req.body.userQuery;
         const category = req.body.category;
         console.log(`Received message about '${category}': ${userQuery}`);
+        // ---------------------------------------------------------
+        // STEP 1: VALIDATE INPUTS BEFORE DOING ANY PROCESSING
+        // If validation fails, return an error message safely.
+        // ---------------------------------------------------------
+        if (!validateBasicInput(category, userQuery)) {
+            return res.status(400).json({
+                text: "Invalid input. Please refine your request.",
+                sources: [] // keep the structure so frontend is safe
+            });
+        }
+
 
         // --- 1. RETRIEVE (and Clean) ---
         // (Note: This still reads from disk on every request, per your choice)
