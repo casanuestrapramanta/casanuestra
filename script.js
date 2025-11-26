@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSending = false; // Μεταβλητή για αποφυγή πολλαπλών αιτημάτων (Debounce)
     let todayWeatherHint = "";
 
-
+ 
     // --- 3. API Config (Διαμόρφωση Σύνδεσης) ---
     const ourServerUrl = 'https://casanuestra.onrender.com/chat';
     //const ourServerUrl = 'http://localhost:3000/chat'; // Uncomment for local development
