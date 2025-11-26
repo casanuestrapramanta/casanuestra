@@ -1,3 +1,6 @@
+// ΝΕΟ: Εισαγωγή του module καιρού
+import { fetchAndRenderWeather } from './weather.js';
+
 // Περιμένουμε μέχρι να φορτωθεί πλήρως το DOM πριν εκτελέσουμε το script
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -329,4 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 6. Αρχική Εκκίνηση ---
     showCategoryView(); // Ξεκινάμε με την οθόνη επιλογής κατηγορίας
+    // ΝΕΟ: Κλήση για φόρτωση του καιρού
+    fetchAndRenderWeather('weather-badges-container');
 });

@@ -21,15 +21,17 @@
         <!-- Category Selection View (Visible by default) -->
         <div id="category-view" class="flex flex-col h-full bg-white dark:bg-gray-800 shadow-2xl rounded-2xl overflow-y-auto  p-6">
             <header class="mb-6 flex flex-col items-center">
-                <!-- Logo Placeholder -->
-                <div id="logo-placeholder" class="mb-4">
-                    <!-- You can replace this div with an <img> tag like: -->
-                    <img src="casanuestra.jpg" alt="Casa Nustra Logo" class="w-35 h-35 rounded-full"> 
-                    <!--span>LOGO</span-->
-                </div>
-                
-                <h1 class="text-2xl font-bold text-center text-green-800 dark:text-green-300">Casa Nuestra-AI Ψηφιακός Βοηθός</h1>
-                <p class="text-sm text-center text-gray-600 dark:text-gray-400">Παρακαλώ επιλέξτε μια κατηγορία</p>
+    <div id="logo-placeholder" class="mb-4">
+        <img src="casanuestra.jpg" alt="Casa Nustra Logo" class="w-35 h-35 rounded-full"> 
+        </div>
+    
+    <h1 class="text-2xl font-bold text-center text-green-800 dark:text-green-300">Casa Nuestra-AI Ψηφιακός Βοηθός</h1>
+    
+    <p id="header-subtitle" class="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">Παρακαλώ επιλέξτε μια κατηγορία</p>
+    
+    <div id="weather-badges-container" class="flex justify-center flex-wrap gap-4 mt-2 mb-6 w-full max-w-sm">
+        </div>
+</header>
             </header>
             <main class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button class="category-button" data-category="food" data-title="Φαγητό">
@@ -110,6 +112,8 @@
     </div>
 
     <!-- Link to our new JavaScript file -->
-    <script src="script.js"></script>
+    <script type="module" src="weather.js"></script>
+    <script type="module" src="script.js"></script>
+    
 </body>
 </html>

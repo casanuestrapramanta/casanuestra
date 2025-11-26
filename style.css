@@ -85,3 +85,38 @@ body {
 .dark #chat-messages::-webkit-scrollbar-thumb:hover {
     background: #718096; /* dark:bg-gray-300 */
 }
+/* Container των badges */
+#weather-badges-container {
+    display: flex;
+    justify-content: center;
+    gap: 0.30rem; /* πολύ μικρή απόσταση μεταξύ τους */
+    flex-wrap: nowrap; /* δεν θέλουμε να σπάνε γραμμή */
+}
+
+/* Badges */
+.weather-badge {
+    flex: 0 0 auto;       /* να μην τεντώνονται */
+    min-width: 60px;       /* πιο compact */
+    padding: 0.2rem 0.25rem;
+    border-radius: 0.5rem;
+    font-size: 0.55rem;
+    box-shadow: none;
+    text-align: center;
+    background-color: #ffffff; /* ουδέτερο */
+    color: #065f46;
+}
+
+.weather-emoji {
+    font-size: 2rem;
+}
+
+.weather-temp {
+    font-size: 0.6rem;
+    margin-top: 0.1rem;
+}
+
+.day-label {
+    font-size: 0.6rem;
+    margin-bottom: 0.05rem;
+}
+
