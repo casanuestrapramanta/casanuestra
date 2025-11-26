@@ -176,16 +176,18 @@ async function loadAndCleanCsvData(csvFilePath) {
  * @param {string} userQuery - The user's question.
  * @returns {string} The complete prompt text to be sent to the AI.
  */
-function buildPrompt(promptFilePath, csvData, userQuery) {
+function buildPrompt(promptFilePath, csvData, userQuery, weatherHint) {
     let promptText = fs.readFileSync(promptFilePath, 'utf8');
 
-    // Augment the prompt with data and user query
     const csvDataString = JSON.stringify(csvData, null, 2);
+
     promptText = promptText.replace('{CSV_DATA_GOES_HERE}', csvDataString);
     promptText = promptText.replace('{USER_QUERY_GOES_HERE}', userQuery);
+    promptText = promptText.replace('{WEATHER_HINT}', weatherHint || "");
 
     return promptText;
 }
+
 
 /**
  * PROPOSAL 3: Finds relevant source links from the AI's response.
@@ -237,34 +239,35 @@ app.post('/chat', async (req, res) => {
     try {
         const userQuery = req.body.userQuery;
         const category = req.body.category;
+        const weatherHint = req.body.weatherHint || "";   // ⭐ ΝΕΟ
         console.log(`Received message about '${category}': ${userQuery}`);
-        // ---------------------------------------------------------
-        // STEP 1: VALIDATE INPUTS BEFORE DOING ANY PROCESSING
-        // If validation fails, return an error message safely.
-        // ---------------------------------------------------------
+        console.log("Weather Hint received:", weatherHint);
+
+        // STEP 1: VALIDATE INPUTS
         if (!validateBasicInput(category, userQuery)) {
             return res.status(400).json({
                 text: "Invalid input. Please refine your request.",
-                sources: [] // keep the structure so frontend is safe
+                sources: []
             });
         }
 
-
-        // --- 1. RETRIEVE (and Clean) ---
-        // (Note: This still reads from disk on every request, per your choice)
+        // 1. RETRIEVE CSV
         const csvFilePath = path.join(__dirname, 'data', `${category}.csv`);
-        const csvData = await loadAndCleanCsvData(csvFilePath); // Now uses Proposal 4's logic
-        console.log(`Read and cleaned ${csvData.length} rows from ${category}.csv`);
+        const csvData = await loadAndCleanCsvData(csvFilePath);
 
-        // --- 2. AUGMENT ---
+        // 2. AUGMENT PROMPT
         const promptFilePath = path.join(__dirname, 'data', `${category}.txt`);
-        const promptText = buildPrompt(promptFilePath, csvData, userQuery);
+        const promptText = buildPrompt(
+            promptFilePath,
+            csvData,
+            userQuery,
+            weatherHint       // ⭐ ΠΕΡΝΑΕΙ ΣΩΣΤΑ ΣΤΟ PROMPT
+        );
 
         console.log("--- FINAL PROMPT SENT TO AI ---");
-        // console.log(promptText); // Uncomment this if you want to see the giant prompt
         console.log("-------------------------------");
 
-        // --- 3. GENERATE (with Retry) ---
+        // 3. GENERATE
         const result = await generateContentWithRetry(promptText);
         const aiResponse = result.response;
         const aiText = aiResponse.text();
@@ -273,24 +276,21 @@ app.post('/chat', async (req, res) => {
         console.log(aiText);
         console.log("----------------------------");
 
-        // --- 4. POST-PROCESS (Find Links) ---
+        // 4. POST-PROCESS
         const sources = findSources(aiText, csvData);
 
-        // --- 5. RESPOND ---
-        const botResponse = {
+        // 5. RESPOND
+        res.json({
             text: aiText,
             sources: sources
-        };
-        res.json(botResponse);
+        });
 
     } catch (error) {
-        // 4. If any file is missing OR the AI fails
         console.error("Error in /chat endpoint:", error.message);
-        const botResponse = {
+        res.status(500).json({
             text: `I'm sorry, I had a problem processing that request. (Error: ${error.message})`,
             sources: []
-        };
-        res.status(500).json(botResponse);
+        });
     }
 });
 

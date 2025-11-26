@@ -19,10 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCategory = null; 
     let currentCategoryTitle = null;
     let isSending = false; // Μεταβλητή για αποφυγή πολλαπλών αιτημάτων (Debounce)
+    let todayWeatherHint = "";
+
 
     // --- 3. API Config (Διαμόρφωση Σύνδεσης) ---
-    const ourServerUrl = 'https://casanuestra.onrender.com/chat';
-    //const ourServerUrl = 'http://localhost:3000/chat'; // Uncomment for local development
+    //const ourServerUrl = 'https://casanuestra.onrender.com/chat';
+    const ourServerUrl = 'http://localhost:3000/chat'; // Uncomment for local development
 
     // --- 4. Βοηθητικές Συναρτήσεις ---
 
@@ -96,7 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // 3. Κατασκευή του payload. Χρησιμοποιούμε τα ονόματα που περιμένει το server.js.
             const payload = {
                 userQuery: userQueryText, // Ευθυγράμμιση με το server.js
-                category: currentCategory
+                category: currentCategory,
+                weatherHint: todayWeatherHint
             };
 
             // 4. Κλήση του Back-End (server.js)
@@ -333,5 +336,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 6. Αρχική Εκκίνηση ---
     showCategoryView(); // Ξεκινάμε με την οθόνη επιλογής κατηγορίας
     // ΝΕΟ: Κλήση για φόρτωση του καιρού
-    fetchAndRenderWeather('weather-badges-container');
+    // Φόρτωση καιρού + αποθήκευση weather hint
+    fetchAndRenderWeather('weather-badges-container')
+        .then(hint => {
+            todayWeatherHint = hint;
+            console.log("Weather Hint:", todayWeatherHint);
+        });
 });
