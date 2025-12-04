@@ -1,8 +1,13 @@
 // ΝΕΟ: Εισαγωγή του module καιρού
 import { fetchAndRenderWeather } from './weather.js';
+import { initRequestManager, canSendRequest, recordRequest } from "./requestManager.js";
+
 
 // Περιμένουμε μέχρι να φορτωθεί πλήρως το DOM πριν εκτελέσουμε το script
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize Request Manager (10 requests/min, 250/day)
+    initRequestManager({ rpm: 10, rpd: 250 });
+
 
     // --- 1. Αναφορά στα DOM Elements (Στοιχεία του HTML) ---
     const categoryView = document.getElementById('category-view');
@@ -82,6 +87,24 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function sendMessage(query) {
         if (!query.trim() || isSending) return;
+        // RATE LIMIT CHECK
+        const limit = canSendRequest();
+
+        if (!limit.ok) {
+            if (limit.reason === "rpm") {
+                addMessage(
+                    `⚠️ Η εφαρμογή έχει φτάσει το όριο των 10 αιτημάτων ανά λεπτό. Δοκιμάστε ξανά σε ${limit.retryAfterSec} δευτερόλεπτα.`,
+                    "system"
+                );
+            } else {
+                addMessage(
+                    "⛔ Η εφαρμογή έχει φτάσει το ημερήσιο όριο των 250 αιτημάτων. Δοκιμάστε ξανά αύριο.",
+                    "system"
+                );
+            }
+            return;
+        }
+
 
         const userQueryText = query.trim();
 
@@ -117,6 +140,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 5. Εμφάνιση της απάντησης του AI
             processAIResponse(data.text);
+
+            recordRequest();
+
             
             // 6. Καθαρισμός input και focus μόνο μετά από επιτυχή αποστολή
             messageInput.value = ''; 
