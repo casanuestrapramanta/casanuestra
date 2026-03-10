@@ -50,7 +50,7 @@ function validateBasicInput(category, userQuery) {
     // If everything is OK, return true
     return true;
 }
-
+ 
 
 if (!apiKey) {
     console.error('FATAL ERROR: GEMINI_API_KEY is not defined in your .env file.');
