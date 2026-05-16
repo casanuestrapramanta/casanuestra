@@ -1,60 +1,64 @@
 // agent.js
 const fs = require('fs');
 
-async function scrapeMunicipality() {
-    console.log("🤖 Ο Agent ξεκινάει με την premium ταυτότητα browser...");
-    
-    const targetUrl = 'https://www.voreiatzoumerka.gr/index.php/touristikos-proorismos';
-    
-    try {
-        // Στέλνουμε "ταυτότητα" κανονικού browser για να μη μας μπλοκάρει το site
-        const response = await fetch(targetUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-        });
+async function scrapeOfficialGuide() {
+    console.log("🤖 Ο Agent ξεκινάει το διάβασμα των επίσημων σελίδων του Δήμου...");
 
-        const html = await response.text();
-        
-        // Έλεγχος αν πήραμε άδεια σελίδα
-        if (!html || html.length < 100) {
-            console.log("⚠️ Το site επέστρεψε άδεια σελίδα ή μας μπλόκαρε.");
-        }
+    // Του δίνουμε απευθείας τις πιο σημαντικές σελίδες του «Τουριστικού Προορισμού»
+    const targets = {
+        "Ιστορία": "https://www.voreiatzoumerka.gr/index.php/touristikos-proorismos/fysi-mnimeia/fysi-mnimeia",
+        "Χωριά": "https://www.voreiatzoumerka.gr/index.php/touristikos-proorismos/fysi-mnimeia/monastiria-ekklisies"
+    };
 
-        const foundLinks = new Set();
-        // Αυτό το Regex πιάνει ΟΛΑ τα links ανεξάρτητα από το τι γράφουν
-        const linkRegex = /href="([^"]+)"/g;
-        let match;
+    const finalResult = {
+        description: "Επίσημος Τουριστικός Οδηγός Βορείων Τζουμέρκων",
+        lastUpdated: new Date().toLocaleString('el-GR', { timeZone: 'Europe/Athens' }),
+        data: []
+    };
 
-        while ((match = linkRegex.exec(html)) !== null) {
-            const urlPath = match[1];
+    // Μπαίνουμε σε κάθε σελίδα ξεχωριστά
+    for (const [title, url] of Object.entries(targets)) {
+        try {
+            console.log(`📥 Διαβάζω την ενότητα: ${title}...`);
             
-            // Φιλτράρουμε να κρατήσουμε μόνο όσα πάνε σε υποσελίδες του τουρισμού
-            if (urlPath.includes('proorismos') || urlPath.includes('fysi-mnhmeia') || urlPath.includes('drastiriotites')) {
-                if (urlPath.startsWith('/')) {
-                    foundLinks.add('https://www.voreiatzoumerka.gr' + urlPath);
-                } else if (urlPath.startsWith('http')) {
-                    foundLinks.add(urlPath);
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
+            });
+            const html = await response.text();
+
+            // Μαζεύουμε τις πρώτες παραγράφους κειμένου από τη σελίδα
+            const paragraphs = [];
+            const pRegex = /<p[^>]*>([\s\S]*?)<\/p>/g;
+            let match;
+
+            while ((match = pRegex.exec(html)) !== null) {
+                const cleanText = match[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+                // Κρατάμε μόνο παραγράφους που έχουν πραγματικό κείμενο (πάνω από 40 χαρακτήρες)
+                if (cleanText.length > 40 && !cleanText.includes('Copyright') && !cleanText.includes('javascript')) {
+                    paragraphs.push(cleanText);
                 }
             }
+
+            // Προσθέτουμε την ενότητα στο τελικό μας αρχείο
+            finalResult.data.push({
+                section: title,
+                sourceUrl: url,
+                info: paragraphs.slice(0, 5) // Κρατάμε τις 5 πρώτες καθαρές παραγράφους
+            });
+
+            // Μικρή στάση 1 δευτερολέπτου για ασφάλεια
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+        } catch (error) {
+            console.error(`❌ Αποτυχία στην ενότητα ${title}:`, error.message);
         }
-
-        const finalLinksList = Array.from(foundLinks);
-        console.log(`📊 Βρέθηκαν συνολικά στο φιλτράρισμα: ${finalLinksList.length} links.`);
-
-        const dataToSave = {
-            description: "Λίστα με όλες τις υποσελίδες του Τουριστικού Προορισμού",
-            totalLinksFound: finalLinksList.length,
-            lastUpdated: new Date().toLocaleString('el-GR', { timeZone: 'Europe/Athens' }),
-            links: finalLinksList
-        };
-
-        fs.writeFileSync('voreia_tzoumerka.json', JSON.stringify(dataToSave, null, 2));
-        console.log("✅ Το αρχείο voreia_tzoumerka.json γράφτηκε στο δίσκο.");
-
-    } catch (error) {
-        console.error("❌ Κάτι έσπασε στον Agent:", error.message);
     }
+
+    // Σώζουμε το τελικό JSON
+    fs.writeFileSync('voreia_tzoumerka.json', JSON.stringify(finalResult, null, 2));
+    console.log("✅ Το αρχείο voreia_tzoumerka.json γράφτηκε με επιτυχία!");
 }
 
-scrapeMunicipality();
+scrapeOfficialGuide();
