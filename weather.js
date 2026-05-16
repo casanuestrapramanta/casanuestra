@@ -57,7 +57,6 @@ function formatTime(isoString) {
     }
 }
 
-// ⭐️ ΔΙΟΡΘΩΣΗ: Προσθήκη κενού μετά το emoji για να δουλεύει σωστά το split(' ')
 function getAirQualityLabel(aqi) {
     if (aqi <= 20) return "🍃 Άριστος";
     if (aqi <= 40) return "👍 Καλός";
@@ -121,7 +120,7 @@ export async function fetchAndRenderWeather(containerId) {
         // Δημιουργία των 3 νέων fancy badges με Tailwind CSS στυλ
         const uvBadge = `
             <div class="weather-badge bg-amber-50 dark:bg-amber-950/40 p-2 rounded-xl flex flex-col items-center min-w-[70px] shadow-sm border border-amber-200/50 dark:border-amber-900/50">
-                <span class="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">Δείκτης UV</span>
+                <span class="text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400 font-bold">ΔΕΙΚΤΗΣ UV</span>
                 <span class="text-sm mt-0.5">☀️</span>
                 <span class="text-xs font-bold text-amber-700 dark:text-amber-300">${Math.round(today.uv)} / 10</span>
             </div>
@@ -129,7 +128,7 @@ export async function fetchAndRenderWeather(containerId) {
 
         const sunBadge = `
             <div class="weather-badge bg-orange-50 dark:bg-orange-950/40 p-2 rounded-xl flex flex-col items-center min-w-[75px] shadow-sm border border-orange-200/50 dark:border-orange-900/50">
-                <span class="text-[10px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-bold">Ηλιοβασίλεμα</span>
+                <span class="text-[10px] uppercase tracking-wider text-orange-600 dark:text-orange-400 font-bold">ΗΛΙΟΒΑΣΙΛΕΜΑ</span>
                 <span class="text-sm mt-0.5">🌅</span>
                 <span class="text-xs font-bold text-orange-700 dark:text-orange-300">${today.sunset}</span>
             </div>
@@ -137,19 +136,18 @@ export async function fetchAndRenderWeather(containerId) {
 
         const airBadge = `
             <div class="weather-badge bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-xl flex flex-col items-center min-w-[85px] shadow-sm border border-emerald-200/50 dark:border-emerald-900/50">
-                <span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold">Αέρας Βουνού</span>
+                <span class="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-bold">ΑΕΡΑΣ</span>
                 <span class="text-sm mt-0.5">🍃</span>
                 <span class="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">${airLabel.split(' ')[1]}</span>
             </div>
         `;
 
-        // Καθαρισμός του container και σχεδίαση όλων των badges μαζί στην ίδια σειρά
-        weatherContainer.innerHTML = 
-            renderWeatherBadge('ΣΗΜΕΡΑ', today.max, today.min, today.code) +
-            renderWeatherBadge('ΑΥΡΙΟ', tomorrow.max, tomorrow.min, tomorrow.code) +
-            uvBadge +
-            sunBadge +
-            airBadge;
+        // ⭐️ ΝΕΑ ΔΟΜΗ ΓΙΑ ΚΙΝΗΤΑ: Χωρίζουμε τα 5 badges σε 2 σειρές για να χωράνε τέλεια παντού
+        const weatherRow = `<div class="flex flex-wrap justify-center gap-2 w-full">${renderWeatherBadge('ΣΗΜΕΡΑ', today.max, today.min, today.code)}${renderWeatherBadge('ΑΥΡΙΟ', tomorrow.max, tomorrow.min, tomorrow.code)}</div>`;
+        const envRow = `<div class="flex flex-wrap justify-center gap-2 w-full mt-2">${uvBadge}${sunBadge}${airBadge}</div>`;
+
+        // Σχεδίαση στο container
+        weatherContainer.innerHTML = `<div class="flex flex-col items-center w-full w-full max-w-full px-2">${weatherRow}${envRow}</div>`;
 
         // Επιστροφή του hint για το AI
         return generateWeatherHint(today.code);
